@@ -3,6 +3,25 @@
     import { User } from "../models/User.model.js";
     import {uploadOnCloudinary} from "../utils/cloudinary.js";
     import { ApiResponse } from "../utils/ApiResponse.js";
+    import {generateAccessToken,generateRefreshToken} from "../utils/jwt.js"; 
+
+    const generateAccessAndRefreshToken = async (userId) => {
+        try {
+            const user =await User.findById(userId)
+            if(!user)
+            {
+                throw new ApiError(404,"User not found")
+            }
+            const accessToken = await generateAccessToken(user);
+            const refreshToken = await generateRefreshToken(user);
+            user.refreshToken = refreshToken;
+            await user.save({ validateBeforeSave: false });
+            return {accessToken,refreshToken}
+
+        } catch (error) {
+            throw new ApiError(500,"Failed to generate tokens")
+        }
+    }
 
     const registerUser = asyncHandler(async (req, res, next) => {
         // get user details from frontend
@@ -79,4 +98,84 @@
     })
 
 
-    export {registerUser}
+    const loginUser = asyncHandler(async (req, res) => {
+        // req body -> data
+        //username or email
+        //find the user 
+        //password check
+        //acess and referesh token
+        // send cookies 
+        //return response
+        const {email,userName ,password} = req.body
+        if(!email || !userName)
+        {
+            throw new ApiError(400,"Email or username is required")
+        }
+        const user = await User.findOne({
+            $or:[{email},{userName}]
+        })
+        if(!user){
+            throw new ApiError(404,"User not found")
+        }
+       const isPasswordValid = await user.isPasswordCorrect(password)
+
+       if(!isPasswordValid)
+       {
+           throw new ApiError(401,"Invalid password")
+       }
+
+       const {accessToken,refreshToken}=await generateAccessAndRefreshToken(user._id)
+       
+       const loggedIndUser = await User.findById(user._id).select("-password -refreshToken")
+       const options ={
+        httpOnly:true,
+        secure:true
+       }
+
+       return res
+       .status(200)
+       .cookie("accessToken",accessToken,options)
+       .cookie("refreshToken",refreshToken,options)
+       .json(new ApiResponse(
+        200,
+        {
+            user:loggedIndUser,
+            accessToken,
+            refreshToken
+        },
+        "User logged in successfully"
+       )
+    )
+
+
+    })
+    const logoutUser = asyncHandler(async (req, res) => {
+        User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $set:{
+                    refreshToken:undefined
+                }
+            },
+        {
+            new:true
+        }
+    )
+    const options ={
+        httpOnly:true,
+        secure:true
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(new ApiResponse(
+        200,
+        {},
+        "User logged out successfully"))
+    })
+
+
+
+    export {registerUser,loginUser,logoutUser}
