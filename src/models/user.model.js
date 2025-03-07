@@ -57,8 +57,10 @@ userSchema.pre("save", async function(next){
 })
 
 userSchema.methods.isPasswordCorrect = async function(password){
+    if (!password) throw new Error("Password is required for comparison");
     return await bcrypt.compare(password, this.password);
-}
+};
+
 
 userSchema.methods.generateAccessToken = async function(){
     return  jwt.sign(
@@ -67,7 +69,7 @@ userSchema.methods.generateAccessToken = async function(){
               email:this.email,
               userName:this.userName,
               fullName:this.fullName
-          },
+          },            
           process.env.ACCESS_TOKEN_SECRET,
           {
               expiresIn:process.env.ACCESS_TOKEN_EXPIRY

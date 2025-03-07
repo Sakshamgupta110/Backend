@@ -1,9 +1,9 @@
-    import { asyncHandler } from "../utils/asyncHandler.js";
-    import { ApiError } from "../utils/ApiError.js";
-    import { User } from "../models/User.model.js";
-    import {uploadOnCloudinary} from "../utils/cloudinary.js";
-    import { ApiResponse } from "../utils/ApiResponse.js";
-    import {generateAccessToken,generateRefreshToken} from "../utils/jwt.js"; 
+import { asyncHandler } from "../utils/asyncHandler.js";
+import {ApiError} from "../utils/ApiError.js"
+import { User} from "../models/user.model.js"
+import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import { ApiResponse } from "../utils/ApiResponse.js"; 
+
 
     const generateAccessAndRefreshToken = async (userId) => {
         try {
@@ -12,8 +12,8 @@
             {
                 throw new ApiError(404,"User not found")
             }
-            const accessToken = await generateAccessToken(user);
-            const refreshToken = await generateRefreshToken(user);
+            const accessToken = await user.generateAccessToken();
+            const refreshToken = await user.generateRefreshToken();
             user.refreshToken = refreshToken;
             await user.save({ validateBeforeSave: false });
             return {accessToken,refreshToken}
@@ -107,7 +107,7 @@
         // send cookies 
         //return response
         const {email,userName ,password} = req.body
-        if(!email || !userName)
+        if(!email && !userName)
         {
             throw new ApiError(400,"Email or username is required")
         }
