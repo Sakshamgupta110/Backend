@@ -258,6 +258,7 @@ import jwt from "jsonwebtoken"
     })
     
     const updateUserAvatar = asyncHandler(async (req,res) =>{
+        // todo delete old avatar image from cloudinary
         const avatarLocalPath = req.file?.path
         if(!avatarLocalPath)
         {
@@ -283,6 +284,7 @@ import jwt from "jsonwebtoken"
     })
 
     const updateUserCoverImage = asyncHandler(async (req,res) =>{
+        //todo delete old coverImage from cloudinary
         const coverImageLocalPath = req.file?.path
         if(!coverImageLocalPath)
             {
@@ -307,6 +309,73 @@ import jwt from "jsonwebtoken"
         return res.status(200).json(new ApiResponse(200,user,"Cover image updated successfully"))
     })
 
+    const getUserChannelProfile = asyncHandler(async (req,res) =>{
+        const {userName} = req.params   
+        if(!userName?.trim())
+        {
+            throw new ApiError(400,"Username is required")
+        }
+
+       // User.find({userName})
+       
+       const channel = await User.aggregate([    // console log one time to see the output
+        {
+            $match:{
+                userName:userName?.toLowerCase()
+            }
+        },
+        {
+            $lookup:{
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"channel",
+                as:"subscribers"
+            }
+        },
+        {
+            $lookup:{
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"subscriber",
+                as:"subscribedTo"
+            }
+        },
+        {
+            $addFields:{
+                subscribersCount:{$size:"$subscribers"},
+                subscribedToCount:{$size:"$subscribedTo"},
+                isSubscribed:{
+                    if:{
+                        $in:[req.user?._id,"$subscribers.subscriber"],
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                fullName:1,
+                userName:1,
+                subscribersCount:1,
+                subscribedToCount:1,
+                avatar:1,
+                coverImage:1,
+                isSubscribed:1,
+                email:1,
+            }
+        }
+       ])
+      //  console.log(channel);
+       if(!channel?.length)
+       {
+           throw new ApiError(404,"Channel not found")
+       }
+       return res.status(200).json(new ApiResponse(200,channel[0],"Channel profile fetched successfully"))
+    })
+
+    
+
     export {registerUser,
         loginUser,
         logoutUser,
@@ -315,4 +384,5 @@ import jwt from "jsonwebtoken"
         getCurrentUser,
         updateAccountDetails,
         updateUserAvatar,
-        updateUserCoverImage}
+        updateUserCoverImage,
+        getUserChannelProfile}
